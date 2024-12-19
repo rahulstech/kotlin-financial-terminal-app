@@ -1,45 +1,51 @@
 import java.time.LocalDate
-import java.time.Month
 import java.util.UUID
 
 enum class IncomeExpenseType {
     INCOME, EXPENSE
 }
 
-//sealed class IncomeExpense(
-//    open var id: String,
-//    var type: IncomeExpenseType,
-//    open var amount: Float,
-//    open var date: LocalDate,
-//    open var note: String?
-//) {
-//
-//    data class Income(
-//        override var amount: Float,override var date: LocalDate,override var note: String? = null,
-//        override var id: String = UUID.randomUUID().toString()
-//    ) : IncomeExpense(id, IncomeExpenseType.INCOME, amount, date, note)
-//
-//    data class Expense(
-//        override var amount: Float, override var date: LocalDate,override var note: String? = null,
-//        override var id: String = UUID.randomUUID().toString()
-//    ) : IncomeExpense(id, IncomeExpenseType.EXPENSE, amount, date, note)
-//
-//    override fun toString(): String {
-//        return "$type id: $id amount: $amount date: $date note: $note"
-//    }
-//}
-
 data class IncomeExpense(
-    var type: IncomeExpenseType, var amount: Float,  var date: LocalDate,  var note: String? = null,
+    var type: IncomeExpenseType, var amount: Float, var date: LocalDate, var note: String? = null,
     val id: String = UUID.randomUUID().toString()) {
 
     override fun toString(): String {
-        return "$type id: $id date: $date amount: ${amount} note: ${note} "
+        return "$type id: $id date: $date amount: $amount note: $note "
     }
 }
 
 class IncomeExpenseDao {
+
+    private val callbackToString: (Any) -> String = {
+        val data = it as IncomeExpense
+        "${data.type},${data.amount},${data.date},${data.note},${data.id}"
+    }
+
+    private val callbackFromString: (String) -> Any = {
+        val cols = it.split(",")
+        val type = IncomeExpenseType.valueOf(cols[0])
+        val amount = cols[1].toFloat()
+        val date = LocalDate.parse(cols[2])
+        val note = cols[3]
+        val id = cols[4]
+        IncomeExpense(type, amount, date, note, id)
+    }
+
     private val entries: MutableMap<String, IncomeExpense> = mutableMapOf()
+    private val storage: Storage =
+        StorageFactory.csvFileStorage("./income_expense_data.csv", callbackToString, callbackFromString)
+
+    init {
+        val data = storage.readAll()?.associate {
+            val data = (it as IncomeExpense)
+            data.id to data
+        }
+        if (null != data) entries.putAll(data)
+    }
+
+    fun store() {
+        storage.writeAll(entries.values.toList())
+    }
 
     fun save(data: IncomeExpense): Boolean {
         entries[data.id] = data

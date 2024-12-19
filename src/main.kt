@@ -18,13 +18,14 @@ class FinBookApp {
             println("3. Edit Income/Expense")
             println("4. Delete Income/Expense")
             println("5. Create Report")
-            println("0. Exit");
+            println("0. Exit")
 
             print(">>> ")
             choice = input.nextInt()
             input.nextLine()
             when (choice) {
                 0 -> {
+                    stop()
                     println("Good Bye")
                     break
                 }
@@ -37,6 +38,8 @@ class FinBookApp {
             }
         } while (true)
     }
+
+    private fun stop() = inexDao.store()
 
     private fun printHeader(title: String) {
         println("--------- ( $title ) ---------")
@@ -52,11 +55,11 @@ class FinBookApp {
         print("Date (yyyy-mm-dd): ")
         val dateString = input.nextLine()
         print("Note: ")
-        val note = input.nextLine();
+        val note = input.nextLine()
         val date = LocalDate.parse(dateString, FORMATTER)
         val inex = when (typeChoice) {
-            "I" -> IncomeExpense(IncomeExpenseType.INCOME, amount,date, note)
-            "E" -> IncomeExpense(IncomeExpenseType.EXPENSE,amount, date, note)
+            "I" -> IncomeExpense(IncomeExpenseType.INCOME, amount, date, note)
+            "E" -> IncomeExpense(IncomeExpenseType.EXPENSE, amount, date, note)
             else -> null
         }
         println()
