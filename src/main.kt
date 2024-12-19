@@ -1,11 +1,13 @@
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Scanner
+import kotlin.math.min
 
 class FinBookApp {
     private val FORMATTER = DateTimeFormatter.ISO_DATE
+    private val FORMAT_MONTH_YEAR = DateTimeFormatter.ofPattern("MMM-yyyy")
     private val input: Scanner = Scanner(System.`in`)
-    private val inexDao = IncomeExpenseDao()
+    val inexDao = IncomeExpenseDao()
 
     fun start() {
         var choice: Int?
@@ -26,17 +28,17 @@ class FinBookApp {
                     println("Good Bye")
                     break
                 }
+
                 1 -> addIncomeExpense()
                 2 -> showIncomeExpense()
                 3 -> editIncomeExpense()
                 4 -> deleteIncomeExpense()
                 5 -> makeReport()
             }
-        }
-        while (true)
+        } while (true)
     }
 
-    private fun  printHeader(title: String) {
+    private fun printHeader(title: String) {
         println("--------- ( $title ) ---------")
     }
 
@@ -52,13 +54,15 @@ class FinBookApp {
         print("Note: ")
         val note = input.nextLine();
         val date = LocalDate.parse(dateString, FORMATTER)
-        val type = if ("I" == typeChoice ) Type.INCOME else Type.EXPENSE
-        val inex = IncomeExpense(type, amount, date, note)
-        println()
-        if (inexDao.save(inex)) {
-            println("new record saved")
+        val inex = when (typeChoice) {
+            "I" -> IncomeExpense(IncomeExpenseType.INCOME, amount,date, note)
+            "E" -> IncomeExpense(IncomeExpenseType.EXPENSE,amount, date, note)
+            else -> null
         }
-        else {
+        println()
+        if (null != inex && inexDao.save(inex)) {
+            println("new record saved")
+        } else {
             println("new record not saved")
         }
     }
@@ -76,16 +80,16 @@ class FinBookApp {
         val choice = input.nextInt()
         input.nextLine()
         when (choice) {
-            1 -> showIncomeExpenseBetweenDates(Type.INCOME)
-            2 -> showAllIncomeExpense(Type.INCOME)
-            3 -> showIncomeExpenseBetweenDates(Type.EXPENSE)
-            4 -> showAllIncomeExpense(Type.EXPENSE)
+            1 -> showIncomeExpenseBetweenDates(IncomeExpenseType.INCOME)
+            2 -> showAllIncomeExpense(IncomeExpenseType.INCOME)
+            3 -> showIncomeExpenseBetweenDates(IncomeExpenseType.EXPENSE)
+            4 -> showAllIncomeExpense(IncomeExpenseType.EXPENSE)
             5 -> showIncomeExpenseBetweenDates()
             6 -> showAllIncomeExpense()
         }
     }
 
-    private fun showIncomeExpenseBetweenDates(type: Type? = null) {
+    private fun showIncomeExpenseBetweenDates(incomeExpenseType: IncomeExpenseType? = null) {
         print("Start Date (yyyy-mm-dd): ")
         val startDateString = input.nextLine()
         print("End Date (yyyy-mm-dd): ")
@@ -93,13 +97,13 @@ class FinBookApp {
 
         val start = LocalDate.parse(startDateString, FORMATTER)
         val end = LocalDate.parse(endDateString, FORMATTER)
-        val entries = inexDao.getAllBetween(start,end,type)
+        val entries = inexDao.getAllBetween(start,end,incomeExpenseType)
         printIncomeExpenseList(entries, 0, 50)
         println()
     }
 
-    private fun showAllIncomeExpense(type: Type? = null) {
-        val entries = inexDao.getAll(type)
+    private fun showAllIncomeExpense(incomeExpenseType: IncomeExpenseType? = null) {
+        val entries = inexDao.getAll(incomeExpenseType)
         printIncomeExpenseList(entries, 0, 50)
         println()
     }
@@ -109,16 +113,13 @@ class FinBookApp {
         if (size == 0) {
             return
         }
-        val end = start + len - 1
-        var x = start
-
-        println("\nShowing results from ${start+1} to ${end+1}\n")
-        while (x <= end && x < size ) {
-            val inex = list.get(x)
-            println("[${x+1}] $inex ")
-            x++
+        val end = min( start + len - 1, size - 1)
+        println("\nShowing results from ${start + 1} to ${end + 1}\n")
+        for (x in start..end) {
+            val inex = list[x]
+            println("[${x + 1}] $inex ")
         }
-        if (x >= size) {
+        if (end == size - 1) {
             return
         }
         println("p - previous | n - next | q - quit")
@@ -134,32 +135,31 @@ class FinBookApp {
         printHeader("Edit Income Expense")
         print("Enter Id: ")
         val id = input.nextLine()
-        val inex = inexDao.getById(id)
+        val inex: IncomeExpense? = inexDao.getById(id)
         if (inex == null) {
             println()
             println("no record found")
-        }
-        else {
+        } else {
+            val inexcpy = inex.copy()
             println()
             print("Press enter key if no change")
             println()
-            println("Amount: ${inex.amount}")
+            println("Amount: ${inexcpy.amount}")
             print("Amount: ")
             if (input.hasNextFloat()) {
                 val amount = input.nextFloat()
                 input.nextLine()
-                inex.amount = amount
+                inexcpy.amount = amount
             }
-            println("Date: ${inex.date.format(FORMATTER)}")
+            println("Date: ${inexcpy.date.format(FORMATTER)}")
             print("Date (yyyy-mm-dd) : ")
             val dateString = input.nextLine()
             if (dateString != "") {
-                val date = LocalDate.parse(dateString, FORMATTER)
-                inex.date = date
+                inexcpy.date = LocalDate.parse(dateString, FORMATTER)
             }
-            println("Node: ${inex.note}")
+            println("Node: ${inexcpy.note}")
             print("Note: ")
-            inex.note = input.nextLine()
+            inexcpy.note = input.nextLine()
 
             println()
             println("changes saved")
@@ -185,10 +185,85 @@ class FinBookApp {
     }
 
     private fun makeReport() {
-        println("showing report")
+        printHeader("Report Income Expense")
+        while (true) {
+            println("M - Monthly")
+            println("Q - Quarterly")
+            println("Y - Yearly")
+            println("X - Quit")
+            print(">>> ")
+            val grouping = input.nextLine()
+            if (grouping == "X") {
+                break
+            }
+            println("I - Income")
+            println("E - Expense")
+            println("R - Previous Menu")
+            println("X - Quit")
+            print(">>> ")
+            val type = when (input.nextLine()) {
+                "R" -> continue
+                "X" -> break
+                "I" -> IncomeExpenseType.INCOME
+                "E" -> IncomeExpenseType.EXPENSE
+                else -> {
+                    println("invalid choice")
+                    break
+                }
+            }
+            when (grouping) {
+                "M" -> {
+                    val dateEnd = LocalDate.now()
+                    val dateStart = dateEnd.minusYears(1).withDayOfMonth(1)
+                    val entries = inexDao.createMonthlyReportByType(dateStart, dateEnd, type)
+                    entries.forEach { (date, amount) ->
+                        println("${date.format(FORMAT_MONTH_YEAR)} $amount")
+                    }
+                    break
+                }
+
+                "Q" -> {
+                    println("Enter Financial Year. Example FY2024 = 2024-04-01 - 2025-03-31")
+                    print("FY: ")
+                    val fy = input.nextInt()
+                    val dateStart = LocalDate.of(fy - 1, 4,1)
+                    val dateEnd = LocalDate.of(fy, 3, 31)
+                    val entries = inexDao.getAllBetween(dateStart, dateEnd, type)
+
+                    val quarterlyReport = mutableMapOf<String,Float>()
+
+                    val quarters = mapOf(
+                        "Q1" to (4..6),
+                        "Q2" to (7..9),
+                        "Q3" to (10..12),
+                        "Q4" to (1..3)
+                    )
+
+                    for ((qname, months) in quarters) {
+                        val qdata = entries.filter { it.date.monthValue in months }.map { it.amount }
+                        val sum = qdata.sum()
+                        quarterlyReport.put(qname, sum)
+                    }
+                    quarterlyReport.forEach { (qname, amount) -> println("$qname $amount") }
+                    break
+                }
+
+                "Y" -> {
+                    print("Enter Year: ")
+                    val year = input.nextInt()
+                    val dateStart = LocalDate.of(year, 1,1)
+                    val dateEnd = LocalDate.of(year, 12, 31)
+                    val entries = inexDao.getAllBetween(dateStart, dateEnd, type).map { it.amount }
+                    val sum = entries.sum()
+                    println("$dateStart - $dateEnd = $sum")
+                    break
+                }
+            }
+        }
     }
 }
 
 fun main() {
-    FinBookApp().start()
+    val app = FinBookApp()
+    app.start()
 }

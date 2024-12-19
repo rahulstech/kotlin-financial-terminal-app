@@ -1,53 +1,84 @@
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.time.Month
 import java.util.UUID
 
-enum class Type {
+enum class IncomeExpenseType {
     INCOME, EXPENSE
 }
 
+//sealed class IncomeExpense(
+//    open var id: String,
+//    var type: IncomeExpenseType,
+//    open var amount: Float,
+//    open var date: LocalDate,
+//    open var note: String?
+//) {
+//
+//    data class Income(
+//        override var amount: Float,override var date: LocalDate,override var note: String? = null,
+//        override var id: String = UUID.randomUUID().toString()
+//    ) : IncomeExpense(id, IncomeExpenseType.INCOME, amount, date, note)
+//
+//    data class Expense(
+//        override var amount: Float, override var date: LocalDate,override var note: String? = null,
+//        override var id: String = UUID.randomUUID().toString()
+//    ) : IncomeExpense(id, IncomeExpenseType.EXPENSE, amount, date, note)
+//
+//    override fun toString(): String {
+//        return "$type id: $id amount: $amount date: $date note: $note"
+//    }
+//}
+
 data class IncomeExpense(
-                          var type: Type, var amount: Float,  var date: LocalDate,  var note: String? = null,
-                          val id: String = UUID.randomUUID().toString()) {
+    var type: IncomeExpenseType, var amount: Float,  var date: LocalDate,  var note: String? = null,
+    val id: String = UUID.randomUUID().toString()) {
 
     override fun toString(): String {
-        return "$type id: $id date: ${date.format(DateTimeFormatter.ISO_DATE)} amount: ${amount} note: ${note} "
+        return "$type id: $id date: $date amount: ${amount} note: ${note} "
     }
 }
 
-class IncomeExpenseDao() {
-    private val entries: MutableList<IncomeExpense> = mutableListOf()
+class IncomeExpenseDao {
+    private val entries: MutableMap<String, IncomeExpense> = mutableMapOf()
 
     fun save(data: IncomeExpense): Boolean {
-        return entries.add(data)
+        entries[data.id] = data
+        return true;
     }
 
-    fun getAll(type: Type?) : List<IncomeExpense> {
+    fun getAll(type: IncomeExpenseType?): List<IncomeExpense> {
         if (type == null) {
-            return entries
+            return entries.values.toList()
         }
         return entries.filter {
-            type == it.type
+            type == it.value.type
+        }.values.toList()
+    }
+
+    fun getAllBetween(start: LocalDate, end: LocalDate, type: IncomeExpenseType?): List<IncomeExpense> {
+        return entries.filterValues {
+            isDateInRange(it.date, start, end) && (null == type || type == it.type)
+        }.values.toList()
+    }
+
+    fun getById(id: String): IncomeExpense? = entries[id]
+
+    fun remove(data: IncomeExpense) = entries.remove(data.id)
+
+    fun createMonthlyReportByType(start: LocalDate, end: LocalDate, type: IncomeExpenseType): Map<LocalDate, Float> {
+        val map = entries.filterValues {
+            type == it.type && isDateInRange(it.date, start, end)
         }
-    }
-
-    fun getAllBetween(start: LocalDate, end: LocalDate, type: Type?): List<IncomeExpense> {
-        return entries.filter {
-            val date = it.date
-            date.isEqual(start) || date.isEqual(end) || (date.isAfter(start) && date.isBefore(end))
-        }.filter {
-            null == type || type == it.type
+        val report = mutableMapOf<LocalDate, Float>()
+        for (entry in map) {
+            val date = entry.value.date.withDayOfMonth(1)
+            val amount = entry.value.amount
+            val sum = report.computeIfAbsent(date) { 0f }
+            report[date] = sum + amount
         }
+        return report
     }
 
-    fun getById(id: String): IncomeExpense? {
-        return entries.find {
-            it.id == id
-        }
-    }
-
-    fun remove(data: IncomeExpense) {
-        entries.remove(data)
-    }
-
+    private fun isDateInRange(date: LocalDate, start: LocalDate, end: LocalDate): Boolean =
+        date.isEqual(start) || date.isEqual(end) || (date.isAfter(start) && date.isBefore(end))
 }

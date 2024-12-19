@@ -5,7 +5,7 @@
 - [x] Add income and expense with note
 - [x] Show by date and type
 - [x] Edit income and expense
-- [ ] Delete income and expense
+- [x] Delete income and expense
 - [ ] Create report: monthly, quarterly, yearly income, expense and profit
 - [ ] Save data in file
 
